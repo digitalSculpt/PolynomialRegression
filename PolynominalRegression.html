@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.0.0/p5.min.js"></script>
+    <script>
+        var W = 420, H = 300, G = 6;
+        var mX = [], mY = [], arrX = [], arrY = [], click = false, y;
+        var optimizer = tf.train.sgd(0.01);
+        let a = tf.variable(tf.scalar(0.00000));
+        let b = tf.variable(tf.scalar(0.00000));
+        let c = tf.variable(tf.scalar(0.00000));
+        let d = tf.variable(tf.scalar(0.00000));
+        function mouseDown() { click = true; }
+        function mouseUp() { click = false; }
+
+        function f(coordX) {
+            var x = map(coordX, 0, width, -1, 1);
+            return a.dataSync()[0] * x * x * x + b.dataSync()[0] * x * x + c.dataSync()[0] * x + d.dataSync()[0];
+        }
+
+        function cost() {
+            return tf.tidy(() => {
+                const xs = tf.tensor1d(arrX);
+                const ys = tf.tensor1d(arrY);
+                const p3 = xs.mul(xs).mul(xs).mul(a);
+                const p2 = xs.mul(xs).mul(b);
+                const p1 = xs.mul(c);
+                const p = p3.add(p2).add(p1).add(d);
+                const diff = p.squaredDifference(ys).mean();
+                return diff;
+            });
+        }
+
+        function setup() {
+            var canvas = createCanvas(W, H);
+            canvas.mousePressed(mouseDown);
+            canvas.mouseReleased(mouseUp);
+        }
+
+        function exist(x) {
+            var xMod = Math.floor(x / (W / G));
+            for (var i = 0; i < arrX.length; i++) {
+                var mI = map(arrX[i], -1, 1, 0, width)
+                var iMod = Math.floor(mI / (W / G));
+                if (iMod == xMod)  return true;
+            }
+            return false;
+        }
+
+        function draw() {
+            colorMode(HSB);
+            background(255, 204, 100);
+            var i = 0;
+            while (i < G) {
+                stroke(color(0, 100, 255));
+                strokeWeight(1);
+                line(i * W / G, 0, i * W / G, H);
+                i++;
+            }
+            textSize(16);
+            fill('#ffffff');
+            text("Put 6 points on canvas (one point in each grid)", 55, 20);
+            if (click) {
+                if (arrX.length < G && !exist(mouseX)) {
+                    mX.push(mouseX); mY.push(mouseY);
+                    arrX.push(map(mouseX, 0, width, -1, 1));
+                    arrY.push(map(mouseY, 0, height, 1, -1));
+                }
+            } else if (arrX.length == G) {
+                tf.tidy(() => {
+                    if (arrX.length > 1) {
+                        optimizer.minimize(() => cost());
+                    }
+                });
+            }
+            stroke(255);
+            strokeWeight(6);
+            for (let i = 0; i <= arrX.length; i++) {
+                if (arrX[i] && arrY[i]) {
+                    dx = map(arrX[i], -1, 1, 0, width);
+                    dy = map(arrY[i], -1, 1, height, 0);
+                    point(dx, dy);
+                }
+            }
+            noFill();
+            strokeWeight(1);
+            for (var i = 0; i < width; i++) {
+                y = f(i);
+                y = map(y, -1, 1, height, 0);
+                ellipse(i, y, 1, 1);
+            }
+            endShape();
+        }
+    </script>
+</head>
+<body>
+    <h2>Order 3 Polynomial Regression in Tensorflow.js </h2>
+    <h4>
+        This project is to geberate 3rd order Polynomial Regression to fit 6 points with Tensorflow.js and p5.js<br />
+        y = a * x^3 + b * x^2 + c * x + d<br />
+
+        Click on canvas to add 6 points (one point on each vertical grid). The model will find the best parameters for a, b, c and d so that
+        the average distance between the points and the polynomial are minimized. <br />
+        Use browser refresh button to restart.
+    </h4>
+    <h3>By David Wang (wangsystem@gmail.com)(c)</h3>
+</body>
+</html>
